@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat App</title>
+    <script type="module">
+        // Import Firebase modules
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+        import { getFirestore, collection, query, where, getDocs, addDoc, onSnapshot, doc, orderBy } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyChVgdEdoH3E5ueWQw3f2tk0JJn_DrfteA",
+            authDomain: "stringer-a6866.firebaseapp.com",
+            projectId: "stringer-a6866",
+            storageBucket: "stringer-a6866.firebasestorage.app",
+            messagingSenderId: "893503594092",
+            appId: "1:893503594092:web:658cff1d4c453893154249"
+        };
+
+        // Initialize Firebase and Firestore
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Get parameters from the URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const senderEmail = urlParams.get('senderEmail');
+        const recipientEmail = urlParams.get('recipientEmail');
+
+        // Display sender and recipient info
+        document.addEventListener("DOMContentLoaded", () => {
+            document.getElementById('senderInfo').innerText = `You: ${senderEmail}`;
+            document.getElementById('recipientInfo').innerText = `Chatting with: ${recipientEmail}`;
+        });
+
+        let chatId = null; // Store chat ID globally
+
+        // Function to find or create a chat
+        async function findOrCreateChat() {
+            const chatRef = collection(db, "chats");
+            const chatQuery = query(chatRef, where("participants", "array-contains", senderEmail));
+            const chatSnapshot = await getDocs(chatQuery);
+
+            for (let chatDoc of chatSnapshot.docs) {
+                const chatData = chatDoc.data();
+                if (chatData.participants.includes(recipientEmail)) {
+                    chatId = chatDoc.id;
+                    return chatId;
+                }
+            }
+
+            // Create a new chat if not found
+            const newChatRef = await addDoc(chatRef, {
+                participants: [senderEmail, recipientEmail],
+                createdAt: new Date()
+            });
+
+            chatId = newChatRef.id;
+            return chatId;
+        }
+
+        // Function to send a message
+        async function sendMessage() {
+            const messageText = document.getElementById('messageInput').value.trim();
+            if (!messageText) return;
+
+            if (!chatId) {
+                await findOrCreateChat();
+            }
+
+            const messagesRef = collection(db, "chats", chatId, "messages");
+            await addDoc(messagesRef, {
+                sender: senderEmail,
+                text: messageText,
+                timestamp: new Date()
+            });
+
+            document.getElementById('messageInput').value = ''; // Clear input after sending
+        }
+
+        // Function to listen for real-time messages (Always in Order)
+        async function listenForMessages() {
+            if (!chatId) {
+                await findOrCreateChat();
+            }
+
+            const messagesRef = collection(db, "chats", chatId, "messages");
+            const messagesQuery = query(messagesRef, orderBy("timestamp")); // Ensure messages are in order
+
+            onSnapshot(messagesQuery, (snapshot) => {
+                let messagesHtml = '';
+                snapshot.forEach((messageDoc) => {
+                    const message = messageDoc.data();
+                    if (message.sender === senderEmail) {
+                        messagesHtml += `<div class="sent-message"><strong>You:</strong> ${message.text}</div>`;
+                    } else {
+                        messagesHtml += `<div class="received-message"><strong>${message.sender}:</strong> ${message.text}</div>`;
+                    }
+                });
+
+                const messagesDiv = document.getElementById('messages');
+                messagesDiv.innerHTML = messagesHtml;
+                messagesDiv.scrollTop = messagesDiv.scrollHeight; // Auto-scroll to latest message
+            });
+        }
+
+        // Start chat and listen for messages
+        (async () => {
+            await findOrCreateChat();
+            listenForMessages();
+        })();
+
+        // Make sendMessage function globally accessible
+        window.sendMessage = sendMessage;
+    </script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 500px;
+            margin: auto;
+            background-color: #f4f4f4;
+            padding: 20px;
+            text-align: center;
+        }
+        #messages {
+            height: 300px;
+            overflow-y: auto;
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        .sent-message {
+            text-align: right;
+            background: #dcf8c6;
+            padding: 8px;
+            margin: 5px;
+            border-radius: 8px;
+            max-width: 70%;
+            display: inline-block;
+        }
+        .received-message {
+            text-align: left;
+            background: #ffffff;
+            padding: 8px;
+            margin: 5px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            max-width: 70%;
+            display: inline-block;
+        }
+        input {
+            width: 75%;
+            padding: 10px;
+            margin-top: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        button {
+            padding: 10px;
+            margin-left: 5px;
+            cursor: pointer;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h2>Chat App</h2>
+    <p id="senderInfo"></p>
+    <p id="recipientInfo"></p>
+    
+    <div id="messages"></div>
+    
+    <input type="text" id="messageInput" placeholder="Type a message...">
+    <button onclick="sendMessage()">Send</button>
+</body>
+</html>

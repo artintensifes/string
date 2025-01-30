@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search User</title>
+
+    <!-- Firebase v9 Modular SDK -->
+    <script type="module">
+      // Import Firebase modules
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+      import { getFirestore, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+
+      // Your Firebase configuration
+      const firebaseConfig = {
+        apiKey: "AIzaSyChVgdEdoH3E5ueWQw3f2tk0JJn_DrfteA",
+        authDomain: "stringer-a6866.firebaseapp.com",
+        projectId: "stringer-a6866",
+        storageBucket: "stringer-a6866.firebasestorage.app",
+        messagingSenderId: "893503594092",
+        appId: "1:893503594092:web:658cff1d4c453893154249"
+      };
+
+      // Initialize Firebase
+      const app = initializeApp(firebaseConfig);
+      const db = getFirestore(app);
+
+      // Search function for user based on uniqueId
+      const searchForm = document.getElementById('searchForm');
+      const searchInput = document.getElementById('searchInput');
+      const searchResult = document.getElementById('searchResult');
+
+      searchForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const uniqueIdToSearch = searchInput.value;
+
+        try {
+          // Query Firestore for the user document with the matching uniqueId
+          const usersRef = collection(db, "users");
+          const q = query(usersRef, where("uniqueId", "==", parseInt(uniqueIdToSearch)));
+          
+          const querySnapshot = await getDocs(q);
+
+          if (!querySnapshot.empty) {
+            querySnapshot.forEach((doc) => {
+              const userData = doc.data();
+              // Show the email of the user
+              searchResult.innerHTML = `
+                <h3>User Found:</h3>
+                <p>Email: ${userData.email}</p>
+                <p>UID: ${userData.uid}</p>
+                <p>Unique ID: ${userData.uniqueId}</p>
+              `;
+            });
+          } else {
+            searchResult.innerHTML = '<p>User not found!</p>';
+          }
+        } catch (error) {
+          console.error("Error searching for user:", error);
+          searchResult.innerHTML = '<p>Error fetching user data.</p>';
+        }
+      });
+    </script>
+</head>
+<body>
+    <h2>Search User by Unique ID</h2>
+    <form id="searchForm">
+        <input type="text" id="searchInput" placeholder="Enter Unique ID" required /><br>
+        <button type="submit">Search</button>
+    </form>
+
+    <div id="searchResult"></div>
+
+    <hr>
+    <a href="signup.html">Go to Signup Page</a>
+</body>
+</html>
